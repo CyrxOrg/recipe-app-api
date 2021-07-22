@@ -1,4 +1,6 @@
-from rest_framework import viewsets, mixins
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 
@@ -46,11 +48,35 @@ class RecipeViewSet(viewsets.ModelViewSet):
     return self.queryset.filter(user=self.request.user)
 
   def get_serializer_class(self):
-    """Return appropriate serializer class to support recipe detail nesting serializers"""
+    """Return appropriate serializer class to support recipe detail nesting serializers as well as for the upload"""
     if self.action == 'retrieve':
       return serializers.RecipeDetailSerializer
+    elif self.action == 'upload_image':
+      return serializers.RecipeImageSerializer
     return self.serializer_class
 
   def perform_create(self, serializer):
     """Override Create anew recipe for a certain user"""
     serializer.save(user=self.request.user)
+
+  #custom operation
+  @action(methods=['POST'], detail=True, url_path='upload-image')
+  def upload_image(self, request, pk = None):
+    """Upload and image to a recipe"""
+    recipe = self.get_object()
+    serializer = self.get_serializer(
+      recipe,
+      data=request.data
+    )
+
+    if serializer.is_valid():
+      serializer.save() ##requires the proper serializer, to use save
+      return Response(
+        serializer.data,
+        status=status.HTTP_200_OK
+      )
+    return Response(
+      serializer.errors,
+      status = status.HTTP_400_BAD_REQUEST
+    )
+
